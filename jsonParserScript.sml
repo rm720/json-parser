@@ -45,10 +45,12 @@ Proof
   fs[LENGTH_TL]
 QED
 
+(*
 CONS_HEAD_REST
 TAIL_MONO
 LENGTH_TL
 OPTION_MAP_DEF
+*)
 
 Theorem input_thm:
   ∀s input. input = Input l s ⇒ input.String = s
@@ -56,8 +58,7 @@ Proof
   rw[]
 QED
    
-        
-(* Draft *)
+   
 Theorem inputUncons_length_thm:
   ∀x xs input input'. inputUncons input = SOME (x, input') ⇒ LENGTH(input'.String) < LENGTH(input.String)
 Proof
@@ -66,6 +67,16 @@ Proof
   metis_tac[input_thm, cons_lenght_thm]
 QED
 
+
+Theorem inputUncons_some_thm:
+  ∀ input. IS_SOME (inputUncons input) ⇒ LENGTH input.String > 0
+Proof
+  rw[]>>
+  fs[inputUncons_def]>>
+  spose_not_then assume_tac >>
+  fs[]   
+QED
+        
 
    
 Datatype:
@@ -135,19 +146,6 @@ Definition char_parser_def:
          )
 End
 
-EVAL“SND(1,2)”;
-
-
-Theorem inputUncons_some_thm:
-  ∀ input. IS_SOME (inputUncons input) ⇒ LENGTH input.String > 0
-Proof
-  rw[]>>
-  fs[inputUncons_def]>>
-  spose_not_then assume_tac >>
-  fs[]   
-QED
-        
-
 
 Theorem char_parser_success_thm:
   ∀input input' c. (char_parser c).run input = Success (input', parsed) ⇒ LENGTH(input.String) > 0
@@ -166,29 +164,124 @@ Proof
       ]
   ]
 QED
-
-        
         
 Theorem char_parser_length_thm:
   ∀input input' c parsed. (char_parser c).run input = Success (input', parsed) ⇒ LENGTH(input'.String) < LENGTH(input.String)
 Proof
   rw[]>>
   fs[char_parser_def]>>
-  fs[inputUncons_def, cons_lenght_thm, inputUncons_length_thm]
+  Cases_on ‘IS_SOME (inputUncons input)’ >|
+  [
+    fs[]>>
+    Cases_on ‘FST (THE (inputUncons input))’ >|
+    [
+      fs[]>>
+      Cases_on‘CHR n = c’ >|
+      [
+        fs[]>>
+        rw[]>>
+        fs[inputUncons_def]>>
+        rw[inputUncons_some_thm]>>
+        fs[]>>
+        rw[cons_lenght_thm]
+        ,
+        fs[]]
+      ,
+      fs[]
+      ,
+    ]
+    fs[]
+  ]
 QED
+        
 
 
-Theorem char_parser_length_thm:
-  ∀input input' loc x xs c char_parser parsed.  (input = Input loc (x::xs)) ∧
-                      (char_parser c).run input = Success (input', parsed) ∧
-                      input' = Input (loc+1) xs ⇒
-                      LENGTH(input'.String) < LENGTH(input.String)
+
+Definition const_parser_def:
+  const_parser v p =
+    Parser (λ input.
+      case p.run input of
+        Success (rest, _) => Success (rest, v)
+      | Failure err => Failure err)
+End
+
+EVAL“type_of (Failure "eee")”;
+type_of“Failure (ParserError 3 "eee")”;
+
+        
+Overload "<$>" = “const_parser”;
+val _ = set_fixity "<$>" (Infixl 550);
+
+type_of“const_parser  "d" (char_parser (CHR 34))”;
+
+Theorem const_parser_length_thm:
+  ∀p input input' c. (const_parser v (char_parser c)).run input = Success (input', v) ⇒ LENGTH(input.String) < LENGTH(input'.String)
 Proof
-  rw[char_parser_def, inputUncons_def, cons_lenght_thm, inputUncons_length_thm] 
+  rw[]>>
+  fs[const_parser_def]>>
+  Cases_on ‘’
+
+
+        
+  metis_tac[const_parser_def, char_parser_def, char_parser_length_thm] 
 QED
 
 
 
+     
+
+(* Parser optional whitespase *)
+
+Definition white_space_parser_def:
+  white_space_parser = const_parser "" (char_parser #" ")
+End
+
+
+
+Theorem const_parser_length_thm:
+  ∀p input input' parsed c loc x xs v.
+                                           (const_parser v p).run input = Success (next_input, v) ⇒
+                                           LENGTH(next_input.String) < LENGTH(input.String)
+Proof
+  metis_tac[const_parser_def, char_parser_def, char_parser_length_thm] 
+QED
+
+        
+
+Theorem white_space_parser_length_thm:
+  ∀ input input'. white_space_parser.run input = Success(input', parsed) ⇒ STRLEN(input'.String) < STRLEN(input.String)
+Proof
+  fs[white_space_parser_def]>>
+  metis_tac[lemma2]
+QED
+
+        
+Definition loop_helper_def:
+  loop_helper input =
+  case (white_space_parser.run input) of
+    Success (input', _) => loop_helper input'
+  | Failure _ => Success (input, "")                            
+Termination
+  WF_REL_TAC ‘measure (λ input. LENGTH(input.String))’ >>
+  rw[white_space_parser_length_thm]
+End       
+
+Definition white_space_parser_many_def:
+  white_space_parser_many = Parser (λ input. loop_helper input)
+End
+       
+EVAL“white_space_parser_many.run (Input 0 "      123")”;
+
+
+
+
+
+
+
+
+
+
+        
         
 OPTION_MAP_DEF
 IS_SOME_DEF
@@ -318,117 +411,6 @@ End
 
         
 
-
-Definition const_parser_def:
-  const_parser v p =
-    Parser (λ input.
-      case p.run input of
-        Success (rest, _) => Success (rest, v)
-      | Failure err => Failure err)
-End
-
-EVAL“type_of (Failure "eee")”;
-type_of“Failure (ParserError 3 "eee")”;
-
-        
-Overload "<$>" = “const_parser”;
-val _ = set_fixity "<$>" (Infixl 550);
-
-type_of“const_parser  "d" (char_parser (CHR 34))”;
-
-Theorem const_parser_length_thm:
-  ∀p input next_input parsed c loc x xs v. p = char_parser c ∧
-                                           input = Input loc (x::xs) ∧
-                                           next_input = Input (loc+1) xs ∧
-                                           p.run input = Success (next_input, parsed) ∧
-                                           (const_parser v p).run input = Success (next_input, v) ⇒
-                                           LENGTH(next_input.String) < LENGTH(input.String)
-Proof
-  metis_tac[const_parser_def, char_parser_def, char_parser_length_thm] 
-QED
-
-
-
-     
-
-(* Parser optional whitespase *)
-
-Definition white_space_parser_def:
-  white_space_parser = const_parser "" (char_parser #" ")
-End
-
-
-
-EVAL“white_space_parser.run (Input 0 "123")”;
-        
-
-Theorem lemma1:
-  ∀c input input'. (char_parser c).run input = Success (input',parsed) ⇒ STRLEN input'.String < STRLEN input.String
-Proof
-  cheat
-QED
-
-
-
-Theorem const_parser_length_thm:
-  ∀p input input' parsed c loc x xs v.
-                                           (const_parser v p).run input = Success (next_input, v) ⇒
-                                           LENGTH(next_input.String) < LENGTH(input.String)
-Proof
-  metis_tac[const_parser_def, char_parser_def, char_parser_length_thm] 
-QED
-
-        
-Theorem char_parser_length_thm:
-  ∀input input' c.  (char_parser c).run input = Success (input', parsed) ⇒ STRLEN(input'.String) < STRLEN(input.String)
-Proof
-  cheat
-  (*
-  rw[char_parser_def, inputUncons_def, uncons_thm, cons_lenght_thm, inputUncons_length_thm]
-  *)
-QED
-        
-Theorem lemma0:
-  ∀c v input input'. (const_parser v (char_parser c)).run input = Success (input',parsed) ⇒ (char_parser c).run input = Success (input',parsed)
-Proof
-  rw[]>>
-  fs[const_parser_def]>>
-  Cases_on ‘(char_parser c).run input’ >| [
-           Cases_on ‘Failure P0’ >|
-           
-QED
-
-        
-Theorem lemma2:
-  ∀c v input input'. (const_parser v (char_parser c)).run input = Success (input',parsed) ⇒  STRLEN input'.String < STRLEN input.String
-Proof
-  cheat
-QED
-  
-
-Theorem white_space_parser_length_thm:
-  ∀ input input'. white_space_parser.run input = Success(input', parsed) ⇒ STRLEN(input'.String) < STRLEN(input.String)
-Proof
-  fs[white_space_parser_def]>>
-  metis_tac[lemma2]
-QED
-
-        
-Definition loop_helper_def:
-  loop_helper input =
-  case (white_space_parser.run input) of
-    Success (input', _) => loop_helper input'
-  | Failure _ => Success (input, "")                            
-Termination
-  WF_REL_TAC ‘measure (λ input. LENGTH(input.String))’ >>
-  rw[white_space_parser_length_thm]
-End       
-
-Definition white_space_parser_many_def:
-  white_space_parser_many = Parser (λ input. loop_helper input)
-End
-       
-EVAL“white_space_parser_many.run (Input 0 "      123")”;
 
 
 
