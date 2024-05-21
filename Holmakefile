@@ -1,0 +1,14 @@
+HOLDIR = $(HOME)/repos/HOL
+CAKEMLDIR = $(HOME)/repos/cakeml
+INCLUDES = $(HOLDIR)/examples/category\
+		   $(HOLDIR)/src/string\
+		   $(HOLDIR)/src/monad/more-monad\
+		   $(HOLDIR)/src/coretypes\
+		   $(HOLDIR)/examples/diningcryptos\
+		   $(HOLDIR)/examples/PSL/path\
+		   $(HOLDIR)/src/num/theories\
+		   $(HOLDIR)/examples/formal-languages/context-free\
+		   $(HOLDIR)/examples/bootstrap\
+
+
+
