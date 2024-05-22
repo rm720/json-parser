@@ -204,9 +204,6 @@ Definition const_parser_def:
       | Failure err => Failure err)
 End
 
-EVAL“type_of (Failure "eee")”;
-type_of“Failure (ParserError 3 "eee")”;
-
         
 Overload "<$>" = “const_parser”;
 val _ = set_fixity "<$>" (Infixl 550);
@@ -275,9 +272,6 @@ End
        
 EVAL“white_space_parser_many.run (Input 0 "      123")”;     
         
-OPTION_MAP_DEF
-IS_SOME_DEF
-        
 
 (* elevated function application *)
 Definition apply_parser_def:
@@ -311,7 +305,7 @@ End
 Overload "<|>" = “alt_parser”;
 val _ = set_fixity "<|>" (Infixl 570);
        
-
+(*
 Definition string_parser_joiner_def:
   string_parser_joiner p = λ output.
                          case output of
@@ -321,7 +315,7 @@ Definition string_parser_joiner_def:
                               |  Failure err => Failure err)
                          | Failure err => Failure err
 End
-
+*)
 Definition string_parser_joiner_def:
   string_parser_joiner p = λ output.
                              case output of
@@ -484,13 +478,13 @@ End
 EVAL“CHR 34”;
 EVAL“special_char_parser.run (Input 0 ([CHR 34] ++ "normal_string" ++ [CHR 34] ++ "another_normal_string"))”;
 EVAL“normal_string_parser.run (Input 0 ("normal_string" ++ [CHR 34] ++ "another_normal_string"))”;                          
-EVAL“( special_char_parser <&> normal_string_parser <&> special_char_parser).run  (Input 0 ([CHR 34] ++ "normal_string" ++ [CHR 34] ++ "another_normal_string"))”;
+EVAL“(special_char_parser <&> (normal_string_parser <&> special_char_parser)).run  (Input 0 ([CHR 34] ++ "normal_string" ++ [CHR 34] ++ "another_normal_string"))”;
 type_of“parser_sequenser_string”;
 type_of“normal_string_parser”;
 type_of“special_char_parser”;
 type_of“apply_parser”;
 type_of“parser_sequenser_string special_char_parser”;
-type_of“parser_sequenser_string special_char_parser normal_string_parser”;
+type_of“special_char_parser <&> (normal_string_parser <&> special_char_parser)”;
 type_of“(normal_string_parser <&> special_char_parser)”;
 EVAL“"123" ++ "456"”;
 
@@ -499,15 +493,10 @@ EVAL“"123" ++ "456"”;
 
 
 
-
-
-           
-        
-
 (* does not work (broke) *)
 Definition jsonString_parser_def:
   jsonString_parser = Parser (λ input.
-                                case (special_char_parser <&> normal_string_parser <&> special_char_parser).run input of
+                                case (special_char_parser <&> (normal_string_parser <&> special_char_parser)).run input of
                                   Success (input', parsed_string) =>  Success (input', JsonString parsed_string)
                                 | Failure err => Failure err
                              )
@@ -519,6 +508,20 @@ Definition jsonValue_parser_def:
   jsonValue_parser = jsonBool_parser <|> jsonNull_parser <|> jsonNumber_parser <|> jsonString_parser
 End
 
+EVAL“jsonValue_parser.run (Input 0 "123")”;
+EVAL“jsonValue_parser.run (Input 0 ([CHR 34] ++ "normal_string" ++ [CHR 34]))”;
+EVAL“jsonValue_parser.run (Input 0 ([CHR 34] ++ "345" ++ [CHR 34]))”;
+EVAL“jsonValue_parser.run (Input 0 "null")”;
+EVAL“jsonValue_parser.run (Input 0 "true")”;
+EVAL“jsonValue_parser.run (Input 0 "false")”;
+
+
+
+
+
+
+
+        
 (* List parser *)
 
 
