@@ -5,7 +5,7 @@ open listTheory; (* LENGTH_CONS *)
 open arithmeticTheory; (* SUC_ONE_ADD *)
 open sexpcodeTheory; (* STRING_def*)
 open source_valuesTheory; (* option_def *)
-open optionTheory;
+open optionTheory; (* SOME THE NONE*)
 
 
 (* Input: (position where parsing starts):num, (source string to parse): string *)
@@ -172,34 +172,33 @@ Proof
   fs[char_parser_def]>>
   Cases_on ‘IS_SOME (inputUncons input)’ >|
   [
+    (* IS SOME inputUncons input *)
     fs[]>>
-    Cases_on ‘FST (THE (inputUncons input))’ >|
+    Cases_on ‘FST (THE (inputUncons input)) = c’ >|
     [
       fs[]>>
-      Cases_on‘CHR n = c’ >|
+      fs[inputUncons_def]>>
+      fs[]>>
+      Cases_on ‘STRLEN input.String > 0’ >|
       [
         fs[]>>
-        rw[]>>
-        fs[inputUncons_def]>>
-        rw[inputUncons_some_thm]>>
-        fs[]>>
-        rw[cons_lenght_thm]
+        rw[LENGTH_TL]
         ,
-        fs[]]
+        fs[]
+      ]
       ,
       fs[]
-      ,
     ]
+    ,
     fs[]
   ]
 QED
         
-
-
+                                                      
 
 Definition const_parser_def:
   const_parser v p =
-    Parser (λ input.
+  Parser (λ input.
       case p.run input of
         Success (rest, _) => Success (rest, v)
       | Failure err => Failure err)
@@ -215,44 +214,48 @@ val _ = set_fixity "<$>" (Infixl 550);
 type_of“const_parser  "d" (char_parser (CHR 34))”;
 
 Theorem const_parser_length_thm:
-  ∀p input input' c. (const_parser v (char_parser c)).run input = Success (input', v) ⇒ LENGTH(input.String) < LENGTH(input'.String)
+  ∀p input input' c. (const_parser v (char_parser c)).run input = Success (input', v) ⇒ LENGTH(input'.String) < LENGTH(input.String)
 Proof
   rw[]>>
   fs[const_parser_def]>>
-  Cases_on ‘’
-
-
-        
-  metis_tac[const_parser_def, char_parser_def, char_parser_length_thm] 
+  Cases_on ‘(char_parser c).run input’ >|
+  [
+    fs[]
+    ,
+    fs[]>>
+    Cases_on ‘p’ >|
+    [
+      fs[]>>
+      metis_tac[char_parser_length_thm]
+    ]
+  ]
 QED
-
-
-
-     
+   
 
 (* Parser optional whitespase *)
 
 Definition white_space_parser_def:
   white_space_parser = const_parser "" (char_parser #" ")
 End
-
-
-
-Theorem const_parser_length_thm:
-  ∀p input input' parsed c loc x xs v.
-                                           (const_parser v p).run input = Success (next_input, v) ⇒
-                                           LENGTH(next_input.String) < LENGTH(input.String)
-Proof
-  metis_tac[const_parser_def, char_parser_def, char_parser_length_thm] 
-QED
-
-        
+     
 
 Theorem white_space_parser_length_thm:
   ∀ input input'. white_space_parser.run input = Success(input', parsed) ⇒ STRLEN(input'.String) < STRLEN(input.String)
 Proof
+  rw[]>>
   fs[white_space_parser_def]>>
-  metis_tac[lemma2]
+  fs[const_parser_def]>>
+  Cases_on ‘(char_parser #" ").run input’ >|
+  [
+    fs[]
+    ,
+    fs[]>>
+    Cases_on ‘p’ >|
+    [
+      fs[]>>
+      metis_tac[char_parser_length_thm]
+    ]
+  ]
 QED
 
         
@@ -270,18 +273,7 @@ Definition white_space_parser_many_def:
   white_space_parser_many = Parser (λ input. loop_helper input)
 End
        
-EVAL“white_space_parser_many.run (Input 0 "      123")”;
-
-
-
-
-
-
-
-
-
-
-        
+EVAL“white_space_parser_many.run (Input 0 "      123")”;     
         
 OPTION_MAP_DEF
 IS_SOME_DEF
@@ -289,11 +281,11 @@ IS_SOME_DEF
 
 (* elevated function application *)
 Definition apply_parser_def:
-  apply_parser (Parser p1) (Parser p2) =
+  apply_parser p1 p2 =
     Parser (λ input.
-      case p1 input of
+      case p1.run input of
         Success (input', f) =>
-          case p2 input' of
+          case p2.run input' of
             Success (input'', a) => Success (input'', f a)
           | Failure err => Failure err
       | Failure err => Failure err)            
@@ -309,11 +301,11 @@ End
 
 (* OR-parser *)
 Definition alt_parser_def:
-  alt_parser (Parser p1) (Parser p2) =
+  alt_parser p1 p2 =
     Parser (λ input.
-      case p1 input of
-        Failure _ => p2 input
-      | Success _ => p1 input)
+      case p1.run input of
+        Failure _ => p2.run input
+      | Success _ => p1.run input)
 End
 
 Overload "<|>" = “alt_parser”;
@@ -329,6 +321,26 @@ Definition string_parser_joiner_def:
                               |  Failure err => Failure err)
                          | Failure err => Failure err
 End
+
+Definition string_parser_joiner_def:
+  string_parser_joiner p = λ output.
+                             case output of
+                               (* if the input is good then apply parser *)
+                               Success (input1, parsed1) =>
+                                 (
+                                 case p.run(input1) of
+                                   (* if parsed succeeds then attach the input to the result and return *)
+                                   Success (input2, parsed2)  => Success (input2, (parsed1 ++ [parsed2]))
+                                 (* if parser fails the return the original input *)
+                                 |  Failure err => output)
+                             (* if input is bad then return it as it is*)
+                             | Failure err => Failure err
+End
+
+
+
+
+        
 
 Definition SWAP_ARGS_def:
   SWAP_ARGS f = λx y. f y x
@@ -409,36 +421,28 @@ Definition jsonNumber_parser_def:
 End
 (*----------------------------------*)
 
-        
-
-
-
-
-
-       
-
-
-
-
-        
-
-
-                      
+                     
         
 Definition parser_sequenser_string_def:
-  parser_sequenser_string (Parser p2) (Parser p1) =
+  parser_sequenser_string p2 p1 =
   Parser (λ input1.
-            case p1 input1 of
+            case p1.run input1 of
               Success (input2, parsed1) =>
-                                (
-                                case p2 input2 of
-                                  Success (input3, parsed2) => Success (input3, (parsed1 ++ parsed2))
-                                | Failure err => Failure err
-                                )
-                              | Failure err => Failure err
+                (
+                case p2.run input2 of
+                  Success (input3, parsed2) =>
+                    let
+                      parsed = "" ++ parsed1 ++ parsed2
+                    in
+                        Success (input3, parsed)
+                | Failure err => Failure err
+                )
+            | Failure err => Failure err
          )
 End
-   
+
+
+        
 
 Overload "<&>" = “parser_sequenser_string”;
 val _ = set_fixity "<&>" (Infixl 520);
@@ -468,21 +472,6 @@ Definition normal_char_parser_def:
 End     
 
 
-Definition string_parser_joiner_def:
-  string_parser_joiner p = λ output.
-                             case output of
-                               (* if the input is good then apply parser *)
-                               Success (input1, parsed1) =>
-                                 (
-                                 case p.run(input1) of
-                                   (* if parsed succeeds then attach the input to the result and return *)
-                                   Success (input2, parsed2)  => Success (input2, (parsed1 ++ [parsed2]))
-                                 (* if parser fails the return the original input *)
-                                 |  Failure err => output)
-                             (* if input is bad then return it as it is*)
-                             | Failure err => Failure err
-End
-
 (* TODO redo using recursion *)
 (* TODO generalise and call "many" *)
 Definition normal_string_parser_def:
@@ -492,6 +481,28 @@ Definition normal_string_parser_def:
     )
 End
 
+EVAL“CHR 34”;
+EVAL“special_char_parser.run (Input 0 ([CHR 34] ++ "normal_string" ++ [CHR 34] ++ "another_normal_string"))”;
+EVAL“normal_string_parser.run (Input 0 ("normal_string" ++ [CHR 34] ++ "another_normal_string"))”;                          
+EVAL“( special_char_parser <&> normal_string_parser <&> special_char_parser).run  (Input 0 ([CHR 34] ++ "normal_string" ++ [CHR 34] ++ "another_normal_string"))”;
+type_of“parser_sequenser_string”;
+type_of“normal_string_parser”;
+type_of“special_char_parser”;
+type_of“apply_parser”;
+type_of“parser_sequenser_string special_char_parser”;
+type_of“parser_sequenser_string special_char_parser normal_string_parser”;
+type_of“(normal_string_parser <&> special_char_parser)”;
+EVAL“"123" ++ "456"”;
+
+
+
+
+
+
+
+
+           
+        
 
 (* does not work (broke) *)
 Definition jsonString_parser_def:
@@ -503,6 +514,7 @@ Definition jsonString_parser_def:
 End
         
 
+        
 Definition jsonValue_parser_def:
   jsonValue_parser = jsonBool_parser <|> jsonNull_parser <|> jsonNumber_parser <|> jsonString_parser
 End
@@ -513,6 +525,13 @@ End
 
 
 
+
+
+
+
+
+   
+   
 
 
         
