@@ -1,12 +1,11 @@
 open stringTheory;
 open extra_stringTheory;
 open PSLPathTheory; (* CONS_def *)
-open listTheory; (* LENGTH_CONS TAKE*)
+open listTheory; (* LENGTH_CONS *)
 open arithmeticTheory; (* SUC_ONE_ADD *)
 open sexpcodeTheory; (* STRING_def*)
 open source_valuesTheory; (* option_def *)
-open optionTheory; (* SOME THE NONE*)
-open 
+open optionTheory;
 
 
 (* Input: (position where parsing starts):num, (source string to parse): string *)
@@ -78,6 +77,7 @@ Proof
   fs[]   
 QED
         
+
    
 Datatype:
   JsonValue = JsonNull
@@ -86,9 +86,7 @@ Datatype:
              | JsonString string
              | JsonArray (JsonValue list)
              | JsonObject ((string # JsonValue) list)
-End
-
-EVAL“JsonArray ([JsonBool T])”;
+End  
 
 Definition runParser_def:
   runParser p input = p.run input
@@ -174,37 +172,41 @@ Proof
   fs[char_parser_def]>>
   Cases_on ‘IS_SOME (inputUncons input)’ >|
   [
-    (* IS SOME inputUncons input *)
     fs[]>>
-    Cases_on ‘FST (THE (inputUncons input)) = c’ >|
+    Cases_on ‘FST (THE (inputUncons input))’ >|
     [
       fs[]>>
-      fs[inputUncons_def]>>
-      fs[]>>
-      Cases_on ‘STRLEN input.String > 0’ >|
+      Cases_on‘CHR n = c’ >|
       [
         fs[]>>
-        rw[LENGTH_TL]
+        rw[]>>
+        fs[inputUncons_def]>>
+        rw[inputUncons_some_thm]>>
+        fs[]>>
+        rw[cons_lenght_thm]
         ,
-        fs[]
-      ]
+        fs[]]
       ,
       fs[]
+      ,
     ]
-    ,
     fs[]
   ]
 QED
         
-                                                      
+
+
 
 Definition const_parser_def:
   const_parser v p =
-  Parser (λ input.
+    Parser (λ input.
       case p.run input of
         Success (rest, _) => Success (rest, v)
       | Failure err => Failure err)
 End
+
+EVAL“type_of (Failure "eee")”;
+type_of“Failure (ParserError 3 "eee")”;
 
         
 Overload "<$>" = “const_parser”;
@@ -213,78 +215,85 @@ val _ = set_fixity "<$>" (Infixl 550);
 type_of“const_parser  "d" (char_parser (CHR 34))”;
 
 Theorem const_parser_length_thm:
-  ∀p input input' c. (const_parser v (char_parser c)).run input = Success (input', v) ⇒ LENGTH(input'.String) < LENGTH(input.String)
+  ∀p input input' c. (const_parser v (char_parser c)).run input = Success (input', v) ⇒ LENGTH(input.String) < LENGTH(input'.String)
 Proof
   rw[]>>
   fs[const_parser_def]>>
-  Cases_on ‘(char_parser c).run input’ >|
-  [
-    fs[]
-    ,
-    fs[]>>
-    Cases_on ‘p’ >|
-    [
-      fs[]>>
-      metis_tac[char_parser_length_thm]
-    ]
-  ]
+  Cases_on ‘’
+
+
+        
+  metis_tac[const_parser_def, char_parser_def, char_parser_length_thm] 
 QED
-   
+
+
+
+     
 
 (* Parser optional whitespase *)
 
-Definition whitespace_parser_def:
-  whitespace_parser = const_parser "" (char_parser #" ")
+Definition white_space_parser_def:
+  white_space_parser = const_parser "" (char_parser #" ")
 End
 
-type_of“whitespace_parser”;
-type_of“whitespace_parser.run”;
-EVAL“whitespace_parser.run (Input 0 " 123")”;  
 
-Theorem whitespace_parser_length_thm:
-  ∀ input input'. whitespace_parser.run input = Success(input', parsed) ⇒ STRLEN(input'.String) < STRLEN(input.String)
+
+Theorem const_parser_length_thm:
+  ∀p input input' parsed c loc x xs v.
+                                           (const_parser v p).run input = Success (next_input, v) ⇒
+                                           LENGTH(next_input.String) < LENGTH(input.String)
 Proof
-  rw[]>>
-  fs[whitespace_parser_def]>>
-  fs[const_parser_def]>>
-  Cases_on ‘(char_parser #" ").run input’ >|
-  [
-    fs[]
-    ,
-    fs[]>>
-    Cases_on ‘p’ >|
-    [
-      fs[]>>
-      metis_tac[char_parser_length_thm]
-    ]
-  ]
+  metis_tac[const_parser_def, char_parser_def, char_parser_length_thm] 
 QED
 
         
-Definition whitespace_loop_helper_def:
-  whitespace_loop_helper input =
-  case (whitespace_parser.run input) of
-    Success (input', _) => whitespace_loop_helper input'
+
+Theorem white_space_parser_length_thm:
+  ∀ input input'. white_space_parser.run input = Success(input', parsed) ⇒ STRLEN(input'.String) < STRLEN(input.String)
+Proof
+  fs[white_space_parser_def]>>
+  metis_tac[lemma2]
+QED
+
+        
+Definition loop_helper_def:
+  loop_helper input =
+  case (white_space_parser.run input) of
+    Success (input', _) => loop_helper input'
   | Failure _ => Success (input, "")                            
 Termination
   WF_REL_TAC ‘measure (λ input. LENGTH(input.String))’ >>
-  rw[whitespace_parser_length_thm]
+  rw[white_space_parser_length_thm]
 End       
 
-Definition many_whitespace_parser_def:
-  many_whitespace_parser = Parser (λ input. whitespace_loop_helper input)
+Definition white_space_parser_many_def:
+  white_space_parser_many = Parser (λ input. loop_helper input)
 End
        
-EVAL“many_whitespace_parser.run (Input 0 "      123")”;     
+EVAL“white_space_parser_many.run (Input 0 "      123")”;
+
+
+
+
+
+
+
+
+
+
+        
+        
+OPTION_MAP_DEF
+IS_SOME_DEF
         
 
 (* elevated function application *)
 Definition apply_parser_def:
-  apply_parser p1 p2 =
+  apply_parser (Parser p1) (Parser p2) =
     Parser (λ input.
-      case p1.run input of
+      case p1 input of
         Success (input', f) =>
-          case p2.run input' of
+          case p2 input' of
             Success (input'', a) => Success (input'', f a)
           | Failure err => Failure err
       | Failure err => Failure err)            
@@ -300,17 +309,17 @@ End
 
 (* OR-parser *)
 Definition alt_parser_def:
-  alt_parser p1 p2 =
+  alt_parser (Parser p1) (Parser p2) =
     Parser (λ input.
-      case p1.run input of
-        Failure _ => p2.run input
-      | Success _ => p1.run input)
+      case p1 input of
+        Failure _ => p2 input
+      | Success _ => p1 input)
 End
 
 Overload "<|>" = “alt_parser”;
 val _ = set_fixity "<|>" (Infixl 570);
        
-(*
+
 Definition string_parser_joiner_def:
   string_parser_joiner p = λ output.
                          case output of
@@ -320,24 +329,6 @@ Definition string_parser_joiner_def:
                               |  Failure err => Failure err)
                          | Failure err => Failure err
 End
-*)
-Definition string_parser_joiner_def:
-  string_parser_joiner p = λ output.
-                             case output of
-                               (* if the input is good then apply parser *)
-                               Success (input1, parsed1) =>
-                                 (
-                                 case p.run(input1) of
-                                   (* if parsed succeeds then attach the input to the result and return *)
-                                   Success (input2, parsed2)  => Success (input2, (parsed1 ++ [parsed2]))
-                                 (* if parser fails the return the original input *)
-                                 |  Failure err => output)
-                             (* if input is bad then return it as it is*)
-                             | Failure err => Failure err
-End
-
-
-        
 
 Definition SWAP_ARGS_def:
   SWAP_ARGS f = λx y. f y x
@@ -345,22 +336,20 @@ End
 
 
 (* ----------------------------------- *)
+
         
 Definition string_parser_def:
   string_parser s =
   Parser (λ input.
             case (FOLDL (SWAP_ARGS string_parser_joiner) (Success (input, "")) (MAP char_parser s)) of 
-              Success (input', parsed) =>
-                (case input'.String of
-                   "" => Success (input', parsed)
-                 | _ => Failure (ParserError input'.Location ("Expected '" ++ s ++ "', but found '" ++ input.String ++ "'"))
+              Success (input1, parsed) =>
+                (case input1.String of
+                   "" => Success (input1, parsed)
+                 | _ => Failure (ParserError input1.Location ("Expected '" ++ s ++ "', but found '" ++ input.String ++ "'"))
                 )
             | Failure (ParserError location message) => Failure (ParserError location ("Expected '" ++ s ++ "', but found '" ++ input.String ++ "'"))
          )                          
 End
-
-EVAL“(string_parser "null").run (Input 0 "nullk")”;  
-        
 
 (* TODO redefine using fmap*)
 Definition jsonBool_parser_def:
@@ -373,46 +362,12 @@ Definition jsonBool_parser_def:
          )                          
 End
 
-Definition true_parser_def:
-  true_parser =
-  Parser (λ input.
-            if LENGTH input.String >= 4 then
-              case (string_parser "true").run (Input input.Location (TAKE 4 input.String))  of 
-                Success (input'', "true") => Success ((Input input''.Location (DROP 4 input.String)), JsonBool T)
-              | Failure e => Failure e
-            else Failure (ParserError input.Location "Expected string of length grater than 3 but found shorter")
-         )                          
-End
-
-Definition false_parser_def:
-  false_parser =
-  Parser (λ input.
-            if LENGTH input.String >= 5 then
-              case (string_parser "false").run (Input input.Location (TAKE 5 input.String))  of 
-                Success (input'', "false") => Success ((Input input''.Location (DROP 5 input.String)), JsonBool F)
-              | Failure e => Failure e
-            else Failure (ParserError input.Location "Expected string of length grater than 4 but found shorter")
-         )                          
-End
-
-        
-Definition jsonBool_parser_def:
-  jsonBool_parser = true_parser <|> false_parser                       
-End
-
-type_of“jsonBool_parser.run”;
-EVAL“jsonBool_parser.run (Input 0 "truenull")”;
-EVAL“jsonBool_parser.run (Input 0 "falsenull")”;
-                
-
 Definition jsonNull_parser_def:
   jsonNull_parser =
   Parser (λ input.
-            if LENGTH input.String >= 4 then
-              case (string_parser "null").run (Input input.Location (TAKE 4 input.String))  of 
-                Success (input'', "null") => Success ((Input input''.Location (DROP 4 input.String)), JsonNull)
-              | Failure e => Failure e
-            else Failure (ParserError input.Location "Expected string of length grater than 3 but found shorter")
+            case (string_parser "null").run input of 
+              Success (input1, "null") =>  Success (input1, JsonNull)
+            | Failure e => Failure e
          )                          
 End
 
@@ -454,28 +409,36 @@ Definition jsonNumber_parser_def:
 End
 (*----------------------------------*)
 
-                     
+        
+
+
+
+
+
+       
+
+
+
+
+        
+
+
+                      
         
 Definition parser_sequenser_string_def:
-  parser_sequenser_string p2 p1 =
+  parser_sequenser_string (Parser p2) (Parser p1) =
   Parser (λ input1.
-            case p1.run input1 of
+            case p1 input1 of
               Success (input2, parsed1) =>
-                (
-                case p2.run input2 of
-                  Success (input3, parsed2) =>
-                    let
-                      parsed = "" ++ parsed1 ++ parsed2
-                    in
-                        Success (input3, parsed)
-                | Failure err => Failure err
-                )
-            | Failure err => Failure err
+                                (
+                                case p2 input2 of
+                                  Success (input3, parsed2) => Success (input3, (parsed1 ++ parsed2))
+                                | Failure err => Failure err
+                                )
+                              | Failure err => Failure err
          )
 End
-
-
-        
+   
 
 Overload "<&>" = “parser_sequenser_string”;
 val _ = set_fixity "<&>" (Infixl 520);
@@ -484,8 +447,6 @@ val _ = set_fixity "<&>" (Infixl 520);
 Definition special_char_parser_def:
   special_char_parser = const_parser "" (char_parser (CHR 34))
 End
-
-
 
 
 Definition parse_if_def:
@@ -507,6 +468,21 @@ Definition normal_char_parser_def:
 End     
 
 
+Definition string_parser_joiner_def:
+  string_parser_joiner p = λ output.
+                             case output of
+                               (* if the input is good then apply parser *)
+                               Success (input1, parsed1) =>
+                                 (
+                                 case p.run(input1) of
+                                   (* if parsed succeeds then attach the input to the result and return *)
+                                   Success (input2, parsed2)  => Success (input2, (parsed1 ++ [parsed2]))
+                                 (* if parser fails the return the original input *)
+                                 |  Failure err => output)
+                             (* if input is bad then return it as it is*)
+                             | Failure err => Failure err
+End
+
 (* TODO redo using recursion *)
 (* TODO generalise and call "many" *)
 Definition normal_string_parser_def:
@@ -516,283 +492,40 @@ Definition normal_string_parser_def:
     )
 End
 
-EVAL“CHR 34”;
-EVAL“special_char_parser.run (Input 0 ([CHR 34] ++ "normal_string" ++ [CHR 34] ++ "another_normal_string"))”;
-EVAL“normal_string_parser.run (Input 0 ("normal_string" ++ [CHR 34] ++ "another_normal_string"))”;                          
-EVAL“(special_char_parser <&> (normal_string_parser <&> special_char_parser)).run  (Input 0 ([CHR 34] ++ "normal_string" ++ [CHR 34] ++ "another_normal_string"))”;
-type_of“parser_sequenser_string”;
-type_of“normal_string_parser”;
-type_of“special_char_parser”;
-type_of“apply_parser”;
-type_of“parser_sequenser_string special_char_parser”;
-type_of“special_char_parser <&> (normal_string_parser <&> special_char_parser)”;
-type_of“(normal_string_parser <&> special_char_parser)”;
-EVAL“"123" ++ "456"”;
 
-
-
+(* does not work (broke) *)
 Definition jsonString_parser_def:
   jsonString_parser = Parser (λ input.
-                                case (special_char_parser <&> (normal_string_parser <&> special_char_parser)).run input of
+                                case (special_char_parser <&> normal_string_parser <&> special_char_parser).run input of
                                   Success (input', parsed_string) =>  Success (input', JsonString parsed_string)
                                 | Failure err => Failure err
                              )
 End
         
 
-        
 Definition jsonValue_parser_def:
   jsonValue_parser = jsonBool_parser <|> jsonNull_parser <|> jsonNumber_parser <|> jsonString_parser
 End
 
-EVAL“jsonValue_parser.run (Input 0 "123 null")”;
-EVAL“jsonValue_parser.run (Input 0 "null 123 null")”;
-EVAL“jsonValue_parser.run (Input 0 "true 123 null")”;
-
-EVAL“jsonValue_parser.run (Input 0 (([CHR 34] ++ "normal_string" ++ [CHR 34]) ++ " 123 null"))”;
-
-EVAL“jsonValue_parser.run (Input 0 ([CHR 34] ++ "normal_string" ++ [CHR 34]))”;
-EVAL“jsonValue_parser.run (Input 0 ([CHR 34] ++ "" ++ [CHR 34]))”;
-EVAL“jsonValue_parser.run (Input 0 ([CHR 34] ++ "345" ++ [CHR 34]))”;
-EVAL“jsonValue_parser.run (Input 0 "null")”;
-EVAL“jsonValue_parser.run (Input 0 "true")”;
-EVAL“jsonValue_parser.run (Input 0 "false")”;
-
 (* List parser *)
 
-(* Consumes a compulsory single comma *)
-Definition comma_parser_def:
-  comma_parser = const_parser "" (char_parser #",")
-End
 
-(* TODO: optional comma parser, for the end of the list *)
 
-EVAL“comma_parser.run (Input 0 "qwe")”;
-EVAL“(many_whitespace_parser <&> (comma_parser <&> many_whitespace_parser)).run (Input 0 "   ,   qwe")”;
+
+
+
+
         
-(* consumes a compulsory single comma surrounded by optional whitespaces. E.g.: "     ,     "  *)
-Definition separator_parser_def:
-  separator_parser = (many_whitespace_parser <&> (comma_parser <&> many_whitespace_parser))
-End
 
-EVAL“separator_parser.run (Input 0 "   ,   qwe")”;
-EVAL“separator_parser.run (Input 0 ",qwe")”;
-        
-Definition open_bracket_parser_def:
-  open_bracket_parser = (many_whitespace_parser <&> ((const_parser "" (char_parser #"[")) <&> many_whitespace_parser))
-End
-        
-EVAL“open_bracket_parser.run (Input 0 "   [   qwe")”;
-
-Definition closed_bracket_parser_def:
-  closed_bracket_parser = (many_whitespace_parser <&> ((const_parser "" (char_parser #"]")) <&> many_whitespace_parser))
-End
-
-(* This parser is not needed *)
-Definition many_parser_helper_def:
-  many_parser_helper p =
+Definition many_helper_def:
+  many_helper p =
   λ input. case (p.run input) of
-    Success (input', _) => many_parser_helper p input'
+    Success (input', _) => many_helper p input'
   | Failure _ => Success (input, "")
 Termination
   cheat
 End
 
-
-Definition many_json_parser_helper_def:
-  many_json_parser_helper input accumulator =
-
-  (* Try to parse JsonValue *)
-  case (jsonValue_parser.run input) of
-
-    (* Found first JsonValue *)
-    Success (input', parsed) =>
-      (
-      (* Append first JsonValue to the result *)
-      let accumulator' = accumulator ++ [parsed]
-      in
-
-        (* Try to find a comma *)
-        case separator_parser.run input' of
-
-          (* Found comma *)       
-          Success (input'', _) =>
-
-            (* Repeat all over again *)
-            many_json_parser_helper input'' accumulator'
-
-        (* No comma *)
-        | Failure _ =>
-
-            (* Return first JsonValue and associated next input*)
-            Success (input', accumulator')
-      )
-  (* No JsonValue *)
-  | Failure _ =>
-      (* Return as it was*)
-      Success (input, accumulator)
-Termination
-  cheat
-End
-
-
-        
-Definition many_json_parser_def:
-  many_json_parser = Parser (λ input. many_json_parser_helper input [])
-End
-
-EVAL“many_json_parser.run (Input 0 "null , null  ,  null")”;
-EVAL“many_json_parser.run (Input 0 "null , null")”;
-EVAL“many_json_parser.run (Input 0 "null")”;
-EVAL“many_json_parser.run (Input 0 "")”;           
-EVAL“many_json_parser.run (Input 0 "null,")”;
-EVAL“many_json_parser.run (Input 0 "null , null  ,  null,")”;
-EVAL“many_json_parser.run (Input 0 ",null , null  ,  null")”;
-
-
-Definition jsonArray_parser_def:
-  jsonArray_parser = Parser (λ input.
-                          
-                          (* try to parse "[" *)
-                          case open_bracket_parser.run input of
-
-                            (* found "[" *)
-                            Success (input', _) =>
-
-                              (* try to parse list of jsons *)
-                              (case many_json_parser.run input' of
-
-                                 (* found list of jsons *)
-                                 Success (input'', parsed'') =>
-
-                                   (* try to parse "]" *)
-                                   (case closed_bracket_parser.run input'' of
-
-                                      (* found "]" *)
-                                      Success (input''', _) => Success (input''', JsonArray parsed'')
-
-                                    (* did not find "]"*)
-                                    | Failure _ => Failure (ParserError input''.Location ("Expected ']', but found '" ++ input''.String ++ "'")))
-
-                               (* did not find json values *)
-                               | Failure _ => Failure (ParserError input'.Location ("Expected json value, but found '" ++ input'.String ++ "'")))
-
-                          (* did not find "[" *)
-                          | Failure _ => Failure (ParserError input.Location ("Expected '[', but found '" ++ input.String ++ "'"))
-                       )
-End
-       
-
-Definition jsonValue_parser_def:
-  jsonValue_parser = jsonBool_parser <|> jsonNull_parser <|> jsonNumber_parser <|> jsonString_parser <|> jsonArray_parser
-End
-
-
-Definition json_parser_def:
-  (many_json_parser_helper input accumulator =
-   case (jsonValue_parser.run input) of
-     Success (input', parsed) =>
-       (
-       let accumulator' = accumulator ++ [parsed]
-       in
-         case separator_parser.run input' of   
-           Success (input'', _) =>
-             many_json_parser_helper input'' accumulator'
-         | Failure _ =>
-             Success (input', accumulator')
-       )
-   | Failure _ =>
-       Success (input, accumulator)) ∧
-  (many_json_parser = Parser (λ input. many_json_parser_helper input [])) ∧
-  (jsonValue_parser = Parser (λ input.
-                                (jsonArray_parser).run input)) ∧
-  (jsonArray_parser = Parser (λ input. many_json_parser.run input))
-End
-
-
-
-Definition a_def:
-  f x = g x /\
-  g x = f x
-Termination
-  cheat
-End
-
-
-
-
-
-
-
-
-
-        
-
-
-
-EVAL“list_parser.run (Input 0 "")”;
-EVAL“list_parser.run (Input 0 "[")”;
-EVAL“list_parser.run (Input 0 "[]")”;
-EVAL“list_parser.run (Input 0 "   [   ]   ")”;
-EVAL“list_parser.run (Input 0 "   [ null , null , true,      false  ]   ")”;
-EVAL“list_parser.run (Input 0 "   [ null , null , true,      false,  ]   ")”;
-
-
-EVAL“jsonArray_parser.run (Input 0 "   [ null , null , true,      false, [], null ]   ")”;
-                     
-                     
-
-
-                     
-
-EVAL“(many_parser (comma_parser)).run (Input 0 ",,,,,,,123")”;
-EVAL“(jsonValue_parser <&> (many_parser (comma_parser))).run (Input 0 ",,,,,,,123")”;
-type_of“jsonValue_parser”;
-EVAL“”;
-
-
-
-        
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-   
-
-
-type_of“whitespace_parser”;
-type_of“whitespace_parser.run”;
-EVAL“whitespace_parser.run (Input 0 " ")”;
-type_of“(many_parser whitespace_parser)”;
-
-
-
-        
-
-Definition many_parser_def:
-  many_parser = Parser (λ input. many_loop_helper input)
-End
-
-
-
-        
 
 Definition many_helper_def:
   many_helper p =
