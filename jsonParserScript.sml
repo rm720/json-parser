@@ -6,7 +6,7 @@ open arithmeticTheory; (* SUC_ONE_ADD *)
 open sexpcodeTheory; (* STRING_def*)
 open source_valuesTheory; (* option_def *)
 open optionTheory; (* SOME THE NONE*)
-open 
+
 
 
 (* Input: (position where parsing starts):num, (source string to parse): string *)
@@ -516,6 +516,7 @@ Definition normal_string_parser_def:
     )
 End
 
+(*
 EVAL“CHR 34”;
 EVAL“special_char_parser.run (Input 0 ([CHR 34] ++ "normal_string" ++ [CHR 34] ++ "another_normal_string"))”;
 EVAL“normal_string_parser.run (Input 0 ("normal_string" ++ [CHR 34] ++ "another_normal_string"))”;                          
@@ -528,8 +529,18 @@ type_of“parser_sequenser_string special_char_parser”;
 type_of“special_char_parser <&> (normal_string_parser <&> special_char_parser)”;
 type_of“(normal_string_parser <&> special_char_parser)”;
 EVAL“"123" ++ "456"”;
+*)
 
+Definition stringliteral_parser_def:
+  stringliteral_parser = Parser (λ input.
+                                case (special_char_parser <&> (normal_string_parser <&> special_char_parser)).run input of
+                                  Success (input', parsed_string) =>  Success (input', parsed_string)
+                                | Failure err => Failure err
+                             )
+End
 
+type_of“stringliteral_parser.run”;
+EVAL“stringliteral_parser.run (Inpit 0 ([CHR 34] ++ "mystring" ++ [CHR 34]))”;
 
 Definition jsonString_parser_def:
   jsonString_parser = Parser (λ input.
@@ -539,24 +550,26 @@ Definition jsonString_parser_def:
                              )
 End
         
-
+EVAL“jsonString_parser.run (Inpit 0 ([CHR 34] ++ "mystring" ++ [CHR 34]))”;
         
 Definition jsonValue_parser_def:
   jsonValue_parser = jsonBool_parser <|> jsonNull_parser <|> jsonNumber_parser <|> jsonString_parser
 End
 
+(*
+EVAL“jsonValue_parser.run (Inpit 0 ([CHR 34] ++ "mystring" ++ [CHR 34]))”;       
+EVAL“jsonValue_parser.run (Input 0 "123 null")”;
 EVAL“jsonValue_parser.run (Input 0 "123 null")”;
 EVAL“jsonValue_parser.run (Input 0 "null 123 null")”;
 EVAL“jsonValue_parser.run (Input 0 "true 123 null")”;
-
 EVAL“jsonValue_parser.run (Input 0 (([CHR 34] ++ "normal_string" ++ [CHR 34]) ++ " 123 null"))”;
-
 EVAL“jsonValue_parser.run (Input 0 ([CHR 34] ++ "normal_string" ++ [CHR 34]))”;
 EVAL“jsonValue_parser.run (Input 0 ([CHR 34] ++ "" ++ [CHR 34]))”;
 EVAL“jsonValue_parser.run (Input 0 ([CHR 34] ++ "345" ++ [CHR 34]))”;
 EVAL“jsonValue_parser.run (Input 0 "null")”;
 EVAL“jsonValue_parser.run (Input 0 "true")”;
 EVAL“jsonValue_parser.run (Input 0 "false")”;
+*)
 
 (* List parser *)
 
@@ -661,151 +674,6 @@ Definition jsonArray_parser_def:
 End
       
         
-(* combine 3 *)
-Definition jsonArray_parser_def:
-  jsonArray_parser = Parser (λ input.
-                          
-                          (* try to parse "[" *)
-                          case open_bracket_parser.run input of
-
-                            (* found "[" *)
-                            Success (input', _) =>
-
-                              let
-                                          many_json_parser = Parser (λ input.
-                               let  many_json_parser_helper input accumulator =
-
-  (* Try to parse JsonValue *)
-  case (jsonValue_parser.run input) of
-
-    (* Found first JsonValue *)
-    Success (input', parsed) =>
-      (
-      (* Append first JsonValue to the result *)
-      let accumulator' = accumulator ++ [parsed]
-      in
-
-        (* Try to find a comma *)
-        case separator_parser.run input' of
-
-          (* Found comma *)       
-          Success (input'', _) =>
-
-            (* Repeat all over again *)
-            many_json_parser_helper input'' accumulator'
-
-        (* No comma *)
-        | Failure _ =>
-
-            (* Return first JsonValue and associated next input*)
-            Success (input', accumulator')
-      )
-  (* No JsonValue *)
-  | Failure _ =>
-      (* Return as it was*)
-      Success (input, accumulator) in many_json_parser_helper input [])
-                                        in
-
-                              (* try to parse list of jsons *)
-                              (case many_json_parser.run input' of
-
-                                 (* found list of jsons *)
-                                 Success (input'', parsed'') =>
-
-                                   (* try to parse "]" *)
-                                   (case closed_bracket_parser.run input'' of
-
-                                      (* found "]" *)
-                                      Success (input''', _) => Success (input''', JsonArray parsed'')
-
-                                    (* did not find "]"*)
-                                    | Failure _ => Failure (ParserError input''.Location ("Expected ']', but found '" ++ input''.String ++ "'")))
-
-                               (* did not find json values *)
-                               | Failure _ => Failure (ParserError input'.Location ("Expected json value, but found '" ++ input'.String ++ "'")))
-
-                          (* did not find "[" *)
-                          | Failure _ => Failure (ParserError input.Location ("Expected '[', but found '" ++ input.String ++ "'"))
-                             )
-  
-End
-       
-
-
-(* Combine all 4*)
-Definition jsonValue_parser_def:
-  jsonValue_parser = jsonBool_parser
-                     <|> jsonNull_parser
-                         <|> jsonNumber_parser
-                             <|> jsonString_parser
-                                        <|> ( Parser (λ input.
-                          
-                          (* try to parse "[" *)
-                          case open_bracket_parser.run input of
-
-                            (* found "[" *)
-                            Success (input', _) =>
-
-                              let
-                                          many_json_parser = Parser (λ input.
-                               let  many_json_parser_helper input accumulator =
-
-  (* Try to parse JsonValue *)
-  case (jsonValue_parser.run input) of
-
-    (* Found first JsonValue *)
-    Success (input', parsed) =>
-      (
-      (* Append first JsonValue to the result *)
-      let accumulator' = accumulator ++ [parsed]
-      in
-
-        (* Try to find a comma *)
-        case separator_parser.run input' of
-
-          (* Found comma *)       
-          Success (input'', _) =>
-
-            (* Repeat all over again *)
-            many_json_parser_helper input'' accumulator'
-
-        (* No comma *)
-        | Failure _ =>
-
-            (* Return first JsonValue and associated next input*)
-            Success (input', accumulator')
-      )
-  (* No JsonValue *)
-  | Failure _ =>
-      (* Return as it was*)
-      Success (input, accumulator) in many_json_parser_helper input [])
-                                        in
-
-                              (* try to parse list of jsons *)
-                              (case many_json_parser.run input' of
-
-                                 (* found list of jsons *)
-                                 Success (input'', parsed'') =>
-
-                                   (* try to parse "]" *)
-                                   (case closed_bracket_parser.run input'' of
-
-                                      (* found "]" *)
-                                      Success (input''', _) => Success (input''', JsonArray parsed'')
-
-                                    (* did not find "]"*)
-                                    | Failure _ => Failure (ParserError input''.Location ("Expected ']', but found '" ++ input''.String ++ "'")))
-
-                               (* did not find json values *)
-                               | Failure _ => Failure (ParserError input'.Location ("Expected json value, but found '" ++ input'.String ++ "'")))
-
-                          (* did not find "[" *)
-                          | Failure _ => Failure (ParserError input.Location ("Expected '[', but found '" ++ input.String ++ "'"))
-                                                     ))
-Termination
-  cheat
-End
-
 
 Definition jsonValue_parser_def:
   jsonValue_parser = jsonBool_parser <|> jsonNull_parser <|> jsonNumber_parser <|> jsonString_parser <|> jsonArray_parser
@@ -826,9 +694,95 @@ Definition separator_colon_parser_def:
   separator_colon_parser =  (many_whitespace_parser <&> (colon_parser <&> many_whitespace_parser))
 End
 
+EVAL“separator_colon_parser.run (Input 0 "   :    ")”;
+
+EVAL“(separator_colon_parser <&> stringliteral_parser).run (Input 0 ([CHR 34] ++ "normal string" ++ [CHR 34] ++ "       :     123"))”;                           
+
+Definition pair_parser_def:
+  pair_parser = Parser( λ input.
+                          case (separator_colon_parser <&> stringliteral_parser).run input of
+                            Success (input',parsed') =>
+                              (
+                              case jsonValue_parser.run input' of
+                                Success (input'', parsed'') => Success (input'', (parsed', parsed''))
+                              | Failure e => Failure e
+                              )
+                          | Failure e => Failure e
+                      )
+End        
+
+EVAL“pair_parser.run (Input 0 ([CHR 34] ++ "normal string" ++ [CHR 34] ++ "       :     123"))”;
+
+Definition many_pairs_parser_helper_def[tailrecursive]:
+  many_pairs_parser_helper input accumulator =
+  case (pair_parser.run input) of
+    Success (input', parsed) =>
+      (
+      let accumulator' = accumulator ++ [parsed]
+      in
+        case separator_parser.run input' of
+          Success (input'', _) =>
+            many_pairs_parser_helper input'' accumulator'
+        | Failure _ =>
+            Success (input', accumulator')
+      )
+  | Failure _ =>
+      Success (input, accumulator)
+End
+
+
+Definition many_pairs_parser_def:
+  many_pairs_parser = Parser (λ input. many_pairs_parser_helper input [])
+End
+
+EVAL“many_pairs_parser.run (Input 0 ([CHR 34] ++ "cat" ++ [CHR 34] ++ ":123," ++ [CHR 34] ++ "dog" ++ [CHR 34] ++ " :    45"))”;
+
         
 
+Definition JsonObject_parser_def:
+  JsonObject_parser = Parser (λ input.
+                          
+                          (* try to parse "{" *)
+                          case open_brace_parser.run input of
 
+                            (* found "{" *)
+                            Success (input', _) =>
+
+                              (* try to parse list of pairs *)
+                              (case many_pairs_parser.run input' of
+
+                                 (* found list of jsonspairs *)
+                                 Success (input'', parsed'') =>
+
+                                   (* try to parse "}" *)
+                                   (case closed_brace_parser.run input'' of
+
+                                      (* found "}" *)
+                                      Success (input''', _) => Success (input''', JsonObject parsed'')
+
+                                    (* did not find "]"*)
+                                    | Failure _ => Failure (ParserError input''.Location ("Expected ']', but found '" ++ input''.String ++ "'")))
+
+                               (* did not find json values *)
+                               | Failure _ => Failure (ParserError input'.Location ("Expected json value, but found '" ++ input'.String ++ "'")))
+
+                          (* did not find "[" *)
+                          | Failure _ => Failure (ParserError input.Location ("Expected '[', but found '" ++ input.String ++ "'"))
+                       )
+End
+      
+    
+EVAL“JsonObject_parser.run (Input 0 (" { " ++ [CHR 34] ++ "cat" ++ [CHR 34] ++ ":123," ++ [CHR 34] ++ "dog" ++ [CHR 34] ++ " :    45,  } " ))”;
+EVAL“JsonObject_parser.run (Input 0 (" {  } " ))”;
+
+
+
+Definition jsonValue_parser_def:
+  jsonValue_parser = jsonBool_parser <|> jsonNull_parser <|> jsonNumber_parser <|> jsonString_parser <|> jsonArray_parser <|> JsonObject_parser
+End
+       
+EVAL“jsonValue_parser.run (Input 0 (" { " ++ [CHR 34] ++ "cat" ++ [CHR 34] ++ ":123," ++ [CHR 34] ++ "dog" ++ [CHR 34] ++ " :    45,  } " ))”;
+EVAL“jsonValue_parser.run (Input 0 (" {  } " ))”;       
 
 
         
