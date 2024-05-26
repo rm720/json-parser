@@ -588,18 +588,7 @@ Definition closed_bracket_parser_def:
   closed_bracket_parser = (many_whitespace_parser <&> ((const_parser "" (char_parser #"]")) <&> many_whitespace_parser))
 End
 
-(* This parser is not needed *)
-Definition many_parser_helper_def:
-  many_parser_helper p =
-  λ input. case (p.run input) of
-    Success (input', _) => many_parser_helper p input'
-  | Failure _ => Success (input, "")
-Termination
-  cheat
-End
-
-
-Definition many_json_parser_helper_def:
+Definition many_json_parser_helper_def[tailrecursive]:
   many_json_parser_helper input accumulator =
 
   (* Try to parse JsonValue *)
@@ -631,24 +620,120 @@ Definition many_json_parser_helper_def:
   | Failure _ =>
       (* Return as it was*)
       Success (input, accumulator)
-Termination
-  cheat
 End
-
 
         
 Definition many_json_parser_def:
   many_json_parser = Parser (λ input. many_json_parser_helper input [])
 End
 
-EVAL“many_json_parser.run (Input 0 "null , null  ,  null")”;
-EVAL“many_json_parser.run (Input 0 "null , null")”;
-EVAL“many_json_parser.run (Input 0 "null")”;
-EVAL“many_json_parser.run (Input 0 "")”;           
-EVAL“many_json_parser.run (Input 0 "null,")”;
-EVAL“many_json_parser.run (Input 0 "null , null  ,  null,")”;
-EVAL“many_json_parser.run (Input 0 ",null , null  ,  null")”;
+(* combine the 2 above*)
+Definition many_json_parser_def:
+  many_json_parser = Parser (λ input.
+                               let  many_json_parser_helper input accumulator =
 
+  (* Try to parse JsonValue *)
+  case (jsonValue_parser.run input) of
+
+    (* Found first JsonValue *)
+    Success (input', parsed) =>
+      (
+      (* Append first JsonValue to the result *)
+      let accumulator' = accumulator ++ [parsed]
+      in
+
+        (* Try to find a comma *)
+        case separator_parser.run input' of
+
+          (* Found comma *)       
+          Success (input'', _) =>
+
+            (* Repeat all over again *)
+            many_json_parser_helper input'' accumulator'
+
+        (* No comma *)
+        | Failure _ =>
+
+            (* Return first JsonValue and associated next input*)
+            Success (input', accumulator')
+      )
+  (* No JsonValue *)
+  | Failure _ =>
+      (* Return as it was*)
+      Success (input, accumulator) in many_json_parser_helper input [])
+End
+
+
+
+        
+(* combine 3 *)
+Definition jsonArray_parser_def:
+  jsonArray_parser = Parser (λ input.
+                          
+                          (* try to parse "[" *)
+                          case open_bracket_parser.run input of
+
+                            (* found "[" *)
+                            Success (input', _) =>
+
+                              let
+                                          many_json_parser = Parser (λ input.
+                               let  many_json_parser_helper input accumulator =
+
+  (* Try to parse JsonValue *)
+  case (jsonValue_parser.run input) of
+
+    (* Found first JsonValue *)
+    Success (input', parsed) =>
+      (
+      (* Append first JsonValue to the result *)
+      let accumulator' = accumulator ++ [parsed]
+      in
+
+        (* Try to find a comma *)
+        case separator_parser.run input' of
+
+          (* Found comma *)       
+          Success (input'', _) =>
+
+            (* Repeat all over again *)
+            many_json_parser_helper input'' accumulator'
+
+        (* No comma *)
+        | Failure _ =>
+
+            (* Return first JsonValue and associated next input*)
+            Success (input', accumulator')
+      )
+  (* No JsonValue *)
+  | Failure _ =>
+      (* Return as it was*)
+      Success (input, accumulator) in many_json_parser_helper input [])
+                                        in
+
+                              (* try to parse list of jsons *)
+                              (case many_json_parser.run input' of
+
+                                 (* found list of jsons *)
+                                 Success (input'', parsed'') =>
+
+                                   (* try to parse "]" *)
+                                   (case closed_bracket_parser.run input'' of
+
+                                      (* found "]" *)
+                                      Success (input''', _) => Success (input''', JsonArray parsed'')
+
+                                    (* did not find "]"*)
+                                    | Failure _ => Failure (ParserError input''.Location ("Expected ']', but found '" ++ input''.String ++ "'")))
+
+                               (* did not find json values *)
+                               | Failure _ => Failure (ParserError input'.Location ("Expected json value, but found '" ++ input'.String ++ "'")))
+
+                          (* did not find "[" *)
+                          | Failure _ => Failure (ParserError input.Location ("Expected '[', but found '" ++ input.String ++ "'"))
+                       )
+End
+       
 
 Definition jsonArray_parser_def:
   jsonArray_parser = Parser (λ input.
@@ -681,45 +766,218 @@ Definition jsonArray_parser_def:
                           | Failure _ => Failure (ParserError input.Location ("Expected '[', but found '" ++ input.String ++ "'"))
                        )
 End
-       
+      
 
+
+
+       
 Definition jsonValue_parser_def:
   jsonValue_parser = jsonBool_parser <|> jsonNull_parser <|> jsonNumber_parser <|> jsonString_parser <|> jsonArray_parser
 End
 
 
-Definition json_parser_def:
-  (many_json_parser_helper input accumulator =
-   case (jsonValue_parser.run input) of
-     Success (input', parsed) =>
-       (
-       let accumulator' = accumulator ++ [parsed]
-       in
-         case separator_parser.run input' of   
-           Success (input'', _) =>
-             many_json_parser_helper input'' accumulator'
-         | Failure _ =>
-             Success (input', accumulator')
-       )
-   | Failure _ =>
-       Success (input, accumulator)) ∧
-  (many_json_parser = Parser (λ input. many_json_parser_helper input [])) ∧
-  (jsonValue_parser = Parser (λ input.
-                                (jsonArray_parser).run input)) ∧
-  (jsonArray_parser = Parser (λ input. many_json_parser.run input))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+
+
+        
+(* TESTS *)
+EVAL“many_json_parser.run (Input 0 "null , null  ,  null")”;
+EVAL“many_json_parser.run (Input 0 "null , null")”;
+EVAL“many_json_parser.run (Input 0 "null")”;
+EVAL“many_json_parser.run (Input 0 "")”;           
+EVAL“many_json_parser.run (Input 0 "null,")”;
+EVAL“many_json_parser.run (Input 0 "null , null  ,  null,")”;
+EVAL“many_json_parser.run (Input 0 ",null , null  ,  null")”;
+
+
+
+Definition jsonValue_parser_def[tailrecursive]:
+  jsonValue_parser = jsonBool_parser
+                     <|> jsonNull_parser
+                         <|> jsonNumber_parser
+                             <|> jsonString_parser
+                                 <|> (Parser (λ input.
+                          case open_bracket_parser.run input of
+                            Success (input', _) =>
+
+                              (let  many_json_parser_helper input accumulator =
+                                    case (jsonValue_parser.run input) of
+                                      Success (input', parsed) =>
+                                        (
+                                        let accumulator' = accumulator ++ [parsed]
+                                        in
+                                          case separator_parser.run input' of  
+                                            Success (input'', _) =>
+                                              many_json_parser_helper input'' accumulator'
+                                          | Failure _ =>
+                                              Success (input', accumulator')
+                                        )
+                                    | Failure _ =>
+                                        Success (input, accumulator) in)
+                           
+                              (let many_json_parser = Parser (λ input. many_json_parser_helper input []) in)
+                              
+                              (case many_json_parser.run input' of
+                                 Success (input'', parsed'') =>
+                                   (case closed_bracket_parser.run input'' of
+                                      Success (input''', _) => Success (input''', JsonArray parsed'')
+                                    | Failure _ => Failure (ParserError input''.Location ("Expected ']', but found '" ++ input''.String ++ "'")))
+                               | Failure _ => Failure (ParserError input'.Location ("Expected json value, but found '" ++ input'.String ++ "'")))
+                          | Failure _ => Failure (ParserError input.Location ("Expected '[', but found '" ++ input.String ++ "'"))
+                       )
+  )
 End
 
 
 
+EVAL“jsonValue_parser.run (Input 0 "[null , null  ,  null ]")”;
+
+
+Definition jsonValue_parser_def[tailrecursive]:
+  jsonValue_parser = jsonBool_parser
+                     <|> jsonNull_parser
+                     <|> jsonNumber_parser
+                     <|> jsonString_parser
+                     <|> (Parser (λ input.
+                            case open_bracket_parser.run input of
+                              Success (input', _) =>
+                                let
+                                  fun many_json_parser_helper input accumulator =
+                                    case (jsonValue_parser.run input) of
+                                      Success (input', parsed) =>
+                                        let
+                                          val accumulator' = accumulator ++ [parsed]
+                                        in
+                                          case separator_parser.run input' of
+                                            Success (input'', _) =>
+                                              many_json_parser_helper input'' accumulator'
+                                          | Failure _ =>
+                                              Success (input', accumulator')
+                                        end
+                                    | Failure _ =>
+                                        Success (input, accumulator)
+                                in
+                                  let
+                                    val many_json_parser = Parser (λ input. many_json_parser_helper input [])
+                                  in
+                                    case many_json_parser.run input' of
+                                      Success (input'', parsed'') =>
+                                        (case closed_bracket_parser.run input'' of
+                                           Success (input''', _) => Success (input''', JsonArray parsed'')
+                                         | Failure _ => Failure (ParserError input''.Location ("Expected ']', but found '" ++ input''.String ++ "'")))
+                                    | Failure _ => Failure (ParserError input'.Location ("Expected json value, but found '" ++ input'.String ++ "'"))
+                                  end
+                                end
+                            | Failure _ => Failure (ParserError input.Location ("Expected '[', but found '" ++ input.String ++ "'")))
+End
+
+
+
+
+                          
+        
+
+(* dumb simple examples *)
+
+Definition jp_def[tailrecursive]:
+  (jsonValue_parser =  jsonBool_parser <|> jsonNull_parser <|> jsonNumber_parser <|> jsonString_parser <|> jsonArray_parser)  /\
+  (jsonArray_parser = Parser (λ input. Success (input, (JsonArray []))))
+End      
+
+EVAL“JsonArray []”;
+
 Definition a_def:
-  f x = g x /\
-  g x = f x
+  f = Parser (λ input. Success (input, (JsonArray []))) ∧
+  g = Parser (λ input. f.run input)
+Termination
+  cheat
+End
+
+Definition f_def[tailrecursive]:
+  (f x = g x) ∧
+  (g x = h x) ∧
+  (h x = f x)
+End
+      
+        
+Definition f_def:
+  (jsonValue_parser = Parser (λ input. (jsonArray_parser).run input)) ∧
+  (many_json_parser_helper input = jsonValue_parser.run input) ∧
+  (many_json_parser = Parser (λ input. many_json_parser_helper input) ∧
+  (jsonArray_parser = Parser (λ input. many_json_parser.run input))
 Termination
   cheat
 End
 
 
+Definition a_def[tailrecursive]:
+  (f x = Parser (λ input. Success (Input 0 "", ""))) ∧
+  (g x = h x) ∧
+  (h x = f x) ∧
+  (k x = f x)
+End
 
+Definition jp_def[tailrecursive]:
+  (
+  many_json_parser_helper input accumulator =
+  case (jsonValue_parser.run input) of
+    Success (input', parsed) =>
+      (
+      let accumulator' = accumulator ++ [parsed]
+      in
+        case separator_parser.run input' of   
+          Success (input'', _) =>
+            many_json_parser_helper input'' accumulator'
+        | Failure _ =>
+            Success (input', accumulator')
+      )
+  | Failure _ =>
+      Success (input, accumulator)
+  ) ∧
+
+  (
+  many_json_parser = Parser (λ input. many_json_parser_helper input [])
+  ) ∧
+  (
+  jsonArray_parser = Parser (λ input.
+                               case open_bracket_parser.run input of
+                                 Success (input', _) =>
+                                   (case many_json_parser.run input' of
+                                      Success (input'', parsed'') =>
+                                        (case closed_bracket_parser.run input'' of
+                                           Success (input''', _) => Success (input''', JsonArray parsed'')
+                                         | Failure _ => Failure (ParserError input''.Location ("Expected ']', but found '" ++ input''.String ++ "'")))
+                                    | Failure _ => Failure (ParserError input'.Location ("Expected json value, but found '" ++ input'.String ++ "'")))
+                               | Failure _ => Failure (ParserError input.Location ("Expected '[', but found '" ++ input.String ++ "'"))
+                            )
+  )∧
+  (jsonValue_parser = jsonBool_parser <|> jsonNull_parser <|> jsonNumber_parser <|> jsonString_parser <|> jsonArray_parser)
+End
 
 
 
