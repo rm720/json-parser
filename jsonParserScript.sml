@@ -69,7 +69,8 @@ Proof
   fs[]   
 QED
         
-   
+
+        
 Datatype:
   JsonValue = JsonNull
              | JsonBool bool
@@ -79,6 +80,8 @@ Datatype:
              | JsonObject ((string # JsonValue) list)
 End
 
+
+(*
 Definition runParser_def:
   runParser p input = p.run input
 End
@@ -90,7 +93,7 @@ Definition fmap_def:
                               | Success (i, r) => Success (i, f r))
 End
 
-(*
+
 Definition fmap_parser_def:
   fmap_parser f (Parser p) =
     Parser (λ input.
@@ -192,10 +195,10 @@ Definition const_parser_def:
       | Failure err => Failure err)
 End
 
-        
+(*       
 Overload "<$>" = “const_parser”;
 val _ = set_fixity "<$>" (Infixl 550);
-
+*)
 
 Theorem const_parser_length_thm:
   ∀p input input' c. (const_parser v (char_parser c)).run input = Success (input', v) ⇒ LENGTH(input'.String) < LENGTH(input.String)
@@ -273,12 +276,11 @@ End
 Overload "<*>" = “apply_parser”;
 val _ = set_fixity "<*>" (Infixl 600);
 
-*)
 
 Definition empty_parser_def:
   empty_parser = Parser (λ input. Failure (ParserError 0 "empty"))
 End
-
+*)
 
 (* OR-parser *)
 Definition alt_parser_def:
@@ -426,7 +428,7 @@ Definition jsonNumber_parser_def:
                              )
 End
 
-(* remove if draft works *)                          
+(* Remove if draft works *)                          
 Definition parser_sequenser_string_def:
   parser_sequenser_string p2 p1 =
   Parser (λ input1.
@@ -468,7 +470,12 @@ Definition parser_sequenser_def:
 End
 
 Overload "<&>" = “parser_sequenser”;
-val _ = set_fixity "<&>" (Infixl 520);        
+val _ = set_fixity "<&>" (Infixl 520);
+
+type_of“STRCAT”;
+
+EVAL“[2]++[1]”;
+EVAL“[] ++ [2] ++ [1]”; 
 
 (* remove if draft works *)  
 Definition special_char_parser_def:
@@ -480,7 +487,7 @@ Definition special_char_parser_def:
   special_char_parser = const_parser [] (char_parser (CHR 34))
 End        
 
-
+           
 Definition parse_if_def:
   parse_if desc pred =
     Parser (λ input.
@@ -580,13 +587,18 @@ EVAL“comma_parser.run (Input 0 "qwe")”;
 EVAL“(many_whitespace_parser <&> (comma_parser <&> many_whitespace_parser)).run (Input 0 "   ,   qwe")”;
         
 (* consumes a compulsory single comma surrounded by optional whitespaces. E.g.: "     ,     "  *)
-Definition separator_parser_def:
-  separator_parser = (many_whitespace_parser <&> (comma_parser <&> many_whitespace_parser))
+Definition comma_separator_parser_def:
+  comma_separator_parser = (many_whitespace_parser <&> (comma_parser <&> many_whitespace_parser))
 End
 
-EVAL“separator_parser.run (Input 0 "   ,   qwe")”;
-EVAL“separator_parser.run (Input 0 ",qwe")”;
-
+(* Not used ∃*)
+Definition enlist_parser_def:
+  enlist_parser p = Parser(λ input. case p.run input of
+                                           Success (input, parsed) => Success (input, [parsed])
+                                         | Failure e => Failure e
+                                )
+End
+                                     
 
 (* Remove if draft works*)                          
 Definition open_bracket_parser_def:
@@ -607,7 +619,8 @@ Definition closed_bracket_parser_def:
   closed_bracket_parser = (many_whitespace_parser <&> ((const_parser [] (char_parser #"]")) <&> many_whitespace_parser))
 End
 
-(* Remove if draft works*)  
+(* Remove if draft works*)
+(* CONTINUE HERE: Modify this into a list_sep_by_parser generic parser and then reuse it for list and object*)
 Definition many_json_parser_helper_def[tailrecursive]:
   many_json_parser_helper input accumulator =
 
@@ -642,8 +655,43 @@ Definition many_json_parser_helper_def[tailrecursive]:
       Success (input, accumulator)
 End
 
-      
 (* Draft *)
+Definition separated_by_parser_helper_def[tailrecursive]:
+  separated_by_parser_helper ep sp input accumulator =
+
+  (* Try to parse element *)
+  case (ep.run input) of
+
+    (* Found first element *)
+    Success (input', parsed) =>
+      (
+      (* Append first JsonValue to the result *)
+      let accumulator' = accumulator ++ [parsed]
+      in
+
+        (* Try to find a separator *)
+        case sp.run input' of
+
+          (* Found separator *)       
+          Success (input'', _) =>
+
+            (* Repeat all over again *)
+            separated_by_parser_helper ep sp input'' accumulator'
+
+        (* No comma *)
+        | Failure _ =>
+
+            (* Return first JsonValue and associated next input*)
+            Success (input', accumulator')
+      )
+  (* No JsonValue *)
+  | Failure _ =>
+      (* Return as it was*)
+      Success (input, accumulator)
+End
+      
+     
+(* Draft. Not used ? *)
 Definition many_parser_helper_def[tailrecursive]:
   many_parser_helper p input accumulator =
            case p.run input of
@@ -654,13 +702,32 @@ Definition many_parser_helper_def[tailrecursive]:
 End
 
 
-(* Remode this if Draft works *)        
+(* Remove this if Draft works. Not used∃*)        
 Definition many_json_parser_def:
-  many_json_parser = Parser (λ input. many_json_parser_helper input [])
+  many_json_parser = Parser (λ input. many_json_parser_helper  input [])
 End
 
+
+type_of“comma_separator_parser”;
+type_of“separated_by_parser_helper jsonValue_parser comma_separator_parser (Input 0 "null") []”;
+EVAL“separated_by_parser_helper jsonValue_parser comma_separator_parser (Input 0 "null , ") []”;
+type_of“Parser”;
+type_of“Parser(λ input. separated_by_parser_helper jsonValue_parser comma_separator_parser input [])”;
+type_of“Parser(λ input. separated_by_parser_helper jsonValue_parser comma_separator_parser input [])”;
+type_of“Parser(λ input. separated_by_parser_helper jsonValue_parser comma_separator_parser input [])”;
+EVAL“(Parser(λ input. separated_by_parser_helper jsonValue_parser comma_separator_parser input [])).run (Input 0 "null")”;
+
+
+(* Does not work for some reason, while test works. Draft *)
+type_of“Parser(λ input. separated_by_parser_helper jsonValue_parser comma_separator_parser input [])”;
+EVAL“(Parser(λ input. separated_by_parser_helper jsonValue_parser comma_separator_parser input [])).run (Input 0 "null")”;
+
+Definition json_sep_comma_parser_def:
+  json_sep_comma_parser_def = Parser (λ input. separated_by_parser_helper jsonValue_parser comma_separator_parser input [])
+End
         
-(* Draft *)        
+        
+(* Draft not used ?*)        
 Definition many_parser_def:
   many_parser p = Parser (λ input. many_parser_helper p input [])
 End
@@ -669,6 +736,8 @@ type_of“separator_parser”;
 type_of“many_parser jsonValue_parser”;
 type_of“(separator_parser <&> (many_parser jsonValue_parser))”;
 EVAL“(many_parser (separator_parser <&> (many_parser jsonValue_parser))).run (Input 0 "null , ")”;
+EVAL“(separator_parser <&> (enlist_parser jsonValue_parser)).run (Input 0 ", null")”;
+EVAL“(separator_parser <&> (enlist_parser jsonValue_parser)).run (Input 0 "")”;
 
         
 (* Draft *)  
