@@ -656,8 +656,8 @@ Definition many_json_parser_helper_def[tailrecursive]:
 End
 
 (* Draft *)
-Definition separated_by_parser_helper_def[tailrecursive]:
-  separated_by_parser_helper ep sp input accumulator =
+Definition separated_by__def: (*[tailrecursive]*)
+  (separated_by_parser_helper ep sp input accumulator =
 
   (* Try to parse element *)
   case (ep.run input) of
@@ -687,7 +687,11 @@ Definition separated_by_parser_helper_def[tailrecursive]:
   (* No JsonValue *)
   | Failure _ =>
       (* Return as it was*)
-      Success (input, accumulator)
+      Success (input, accumulator)) ∧
+
+(json_sep_comma_parser = Parser (λ input. separated_by_parser_helper jsonValue_parser comma_separator_parser input []))
+Termination
+  cheat
 End
       
      
@@ -721,12 +725,10 @@ EVAL“(Parser(λ input. separated_by_parser_helper jsonValue_parser comma_separ
 (* Does not work for some reason, while test works. Draft *)
 type_of“Parser(λ input. separated_by_parser_helper jsonValue_parser comma_separator_parser input [])”;
 EVAL“(Parser(λ input. separated_by_parser_helper jsonValue_parser comma_separator_parser input [])).run (Input 0 "null")”;
-
 Definition json_sep_comma_parser_def:
-  json_sep_comma_parser_def = Parser (λ input. separated_by_parser_helper jsonValue_parser comma_separator_parser input [])
-End
-        
-        
+  json_sep_comma_parser = Parser (λ input. separated_by_parser_helper jsonValue_parser comma_separator_parser input [])
+End            
+       
 (* Draft not used ?*)        
 Definition many_parser_def:
   many_parser p = Parser (λ input. many_parser_helper p input [])
@@ -745,20 +747,16 @@ Definition many_json_parser_def:
   many_json_parser = many_parser (separator_parser <&> jsonValue_parser <&>)
 End
         
-        
+(* Draft *)
+type_of“open_bracket_parser”;
+type_of“Parser (λ input. separated_by_parser_helper jsonValue_parser comma_separator_parser input [])”
+type_of“open_bracket_parser <&> (Parser (λ input. separated_by_parser_helper jsonValue_parser comma_separator_parser input [])) <&> closed_bracket_parser”;
 Definition jsonArray_parser_def:
-  jsonArray_parser = open_bracket_parser <&> many_json_parser <&> closed_bracket_parser
+  jsonArray_parser =
+  open_bracket_parser <&> (Parser (λ input. separated_by_parser_helper jsonValue_parser comma_separator_parser input [])) <&> closed_bracket_parser
 End
-        
-Definition j_parser_def:
-  j_parser = Parser (λ input. Success (input, []))
-End
-
-type_of“j_parser”;
-type_of“many_json_parser”;
-type_of“(j_parser <&> many_json_parser)”;
-        
-
+           
+(* remove if draft is wor*)
 Definition jsonArray_parser_def:
   jsonArray_parser = Parser (λ input.
                           
