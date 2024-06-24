@@ -1,0 +1,12 @@
+.#*
+*.sml~
+*.sig
+*.ui
+*.uo
+*.dat
+*Theory.*
+*.hollogs*
+*.HOLMK*
+*Holmakefile
+*.hol-vscode
+.DS_Store
