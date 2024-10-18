@@ -922,24 +922,10 @@ Termination
 End
 
 
-  
-
+ 
 EVAL“jsonValue_parser (Input 0 "{\"key\":1}")”
 EVAL“jsonValue_parser (Input 0 "[{\"my-key-1\":true,\"my-key-2\":[false, null, {\"kkk\":-10}, 0x11, [] ]}, {}, {}, []]") ”;
-
-     
-
-(* requires jsonValue_parser_precursor*)
-Definition jsonValue_parser_def:
-  jsonValue_parser = Parser(λ input. case jsonValue_parser_precursor input of
-                                      Failure e => Failure e
-                                    |Success (input', parsed) =>
-                                       (if input'.String = "" then Success (input', parsed)
-                                        else Failure (ParserError input'.Location ("Unexpected input:" ++ input'.String))
-                                       )
-                           )
-End
-
+    
 
 Definition mlstring_list_to_string_def:
   (mlstring_list_to_string (List []) = "") ∧
@@ -960,6 +946,9 @@ End
 EVAL“json_to_string (Object [(strlit "my-key", Null)])”;
 EVAL“jsonValue_parser (Input 0 (json_to_string (Object [(strlit "my-key", Null)])))”;
 EVAL“Object [(«my-key»,Null)] = THE(extract(jsonValue_parser (Input 0 (json_to_string (Object [(strlit "my-key", Null)])))))”;
+
+
+EVAL“jsonValue_parser (Input 0 "-123456789")”;
                     
 
 (* Final Goal*)
