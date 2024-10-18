@@ -12,6 +12,7 @@
 .DS_Store
 hol_commands.md
 *.txt
+*.ipynb
 # Ignore files with single hash at start and end
 #*Script.sml#
 

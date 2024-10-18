@@ -13,8 +13,10 @@ This project aims to implement a formally verified JSON parser in HOL, designed 
 ## Features (Planned)
 
 - [ ] Formally verified JSON parsing
+- [ ] Parsing binary number
+- [ ] Parsing floating pint numbers
 - [ ] Inverse operation to `json_to_mlstring` in CakeML's `jsonLangTheory`
-- [ ] Guaranteed correct reading of JSON file
+- [ ] Proven correct conversion from mlstring to JSON type
 
 ## Prerequisites
 
