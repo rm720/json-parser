@@ -10,3 +10,5 @@
 *Holmakefile
 *.hol-vscode
 .DS_Store
+hol_commands.md
+*.txt
