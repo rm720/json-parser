@@ -12,3 +12,11 @@
 .DS_Store
 hol_commands.md
 *.txt
+# Ignore files with single hash at start and end
+#*Script.sml#
+
+# Ignore files with double hash at start and end
+##*Script.sml##
+
+# Ignore all files that start and end with any number of hashes
+[#]*Script.sml[#]*
