@@ -20,7 +20,7 @@ This project aims to implement a formally verified JSON parser in HOL, designed 
 
 ## Prerequisites
 
-- [CakeML](https://cakeml.org/) compiler and proof tools
+- [CakeML](https://cakeml.org/) verified compiler
 - [HOL4](https://hol-theorem-prover.org/) theorem prover
 
 ## Installation
