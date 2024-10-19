@@ -58,7 +58,7 @@ This docs is how I bilt and compiled cake ML program:
 
 4. Compile executable
 
-	I could not find a working cakeML compiler for ARMv8 architecture, so I used an AWS linux machine.
+	I could not find a working cakeML compiler for M1 ARMv8 architecture, so I used an AWS linux machine.
 
 	go to Amazon EC2 dashboard
 	https://ap-southeast-2.console.aws.amazon.com/ec2/home?region=ap-southeast-2#Instances:instanceState=running

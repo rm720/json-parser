@@ -22,3 +22,4 @@ hol_commands.md
 # Ignore all files that start and end with any number of hashes
 [#]*Script.sml[#]*
 /backups/
+termination*
