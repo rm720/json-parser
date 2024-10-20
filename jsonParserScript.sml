@@ -260,7 +260,7 @@ Definition whitespace_loop_helper_def:
   whitespace_loop_helper input =
   case (whitespace_parser.run input) of
     Success (input', _) => whitespace_loop_helper input'
-  | Failure _ => Success (input, "")                            
+  | Failure _ => Success (input, "")
 Termination
   WF_REL_TAC ‘measure (λ input. LENGTH(input.String))’ >>
   rw[whitespace_parser_length_thm]
@@ -695,21 +695,16 @@ End
 Definition comma_separator_parser_def:
   comma_separator_parser = (many_whitespace_parser <&> (comma_parser <&> many_whitespace_parser))
 End
+ 
 
-(* parses some values separated by comma and collects them in a list *)
-Definition array_recursive_parser_def[tailrecursive]:
-  array_recursive_parser p output =
-  case output of
-    Success (input, previously_parsed) =>
-      (case p input of
-         Success (input1, parsed_element) =>
-           (case comma_separator_parser.run input1 of     
-              Success (input2, _) => array_recursive_parser p (Success (input2, (previously_parsed ++ [parsed_element])))
-            | Failure _ => Success (input1, (previously_parsed ++ [parsed_element])))
-       | Failure _ => output)
-  | Failure e => Failure e
-End
-
+Theorem comma_separator_parser_length_thm:
+  ∀ input input' parsed. comma_separator_parser.run input = Success(input', parsed) ⇒ STRLEN(input'.String) < STRLEN(input.String)
+Proof
+  cheat
+QED
+    
+      
+        
 (* parser of simple json values *)
 Definition jsonSimple_parser_def:
   jsonSimple_parser = jsonBool_parser <|> jsonNull_parser <|> jsonNumber_parser <|> jsonString_parser
@@ -753,7 +748,66 @@ Proof
   cheat
 QED
     
+        
+(* Proving Termination: Three mutually recursive definitions *)
+Definition json_parser_def:
+(
+array_recursive_parser output =
+  case output of
+    Success (input, previously_parsed) =>
+      (case jsonValue_parser input of
+         Success (input1, parsed_element) =>
+           (case comma_separator_parser.run input1 of     
+              Success (input2, _) => array_recursive_parser (Success (input2, (previously_parsed ++ [parsed_element])))
+            | Failure _ => Success (input1, (previously_parsed ++ [parsed_element])))
+       | Failure _ => output)
+  | Failure e => Failure e
+) ∧                      
+(
+jsonArray_parser input =
+           let p = closed_bracket_parser <&> Parser(λ x. (array_recursive_parser (open_bracket_parser.run x)))
+           in
+             case p.run input of
+               Success (input1, parsed_list) => Success (input1, (Array parsed_list))
+             | Failure e => Failure e
+) ∧
+(
+jsonValue_parser input = (jsonSimple_parser <|> Parser(jsonArray_parser)).run input
+)
+End
+Termination
 
+WF_REL_TAC ‘measure (\x. case x of
+  | INL (Failure _) => 0                             
+  | INL (Success(input, previously_parsed)) => STRLEN(input.String)
+  | INR (INL input) => STRLEN(input.String)          
+  | INR (INR input) => STRLEN(input.String))’ 
+
+
+WF_REL_TAC ‘measure (\x. case x of
+  | INL (Failure _) => 0                             
+  | INL (Success(input, previously_parsed)) => STRLEN(input.String) + LENGTH(previously_parsed)
+  | INR (INL input) => STRLEN(input.String)          
+  | INR (INR input) => STRLEN(input.String))’ 
+
+End  
+
+        
+(* parses some values separated by comma and collects them in a list *)
+Definition array_recursive_parser_def[tailrecursive]:
+  array_recursive_parser p output =
+  case output of
+    Success (input, previously_parsed) =>
+      (case p input of
+         Success (input1, parsed_element) =>
+           (case comma_separator_parser.run input1 of     
+              Success (input2, _) => array_recursive_parser p (Success (input2, (previously_parsed ++ [parsed_element])))
+            | Failure _ => Success (input1, (previously_parsed ++ [parsed_element])))
+       | Failure _ => output)
+  | Failure e => Failure e
+End
+
+    
 
 Definition jsonArray_parser_def:
   jsonArray_parser element_parser input =
@@ -771,8 +825,8 @@ Theorem jsonArray_parser_length_thm:
 Proof
   cheat
 QED
-    
-     
+
+                                    
 
 (* Working version Working do  not touch*)
 Definition jsonValue_parser_def:
