@@ -840,16 +840,7 @@ EVAL“jsonValue_parser (Input 0 "[[[null]]]")”;
 EVAL“jsonValue_parser (Input 0 "5")”;
 EVAL“jsonValue_parser (Input 0 "[null, true, false, 44]")”;        
 
- 
-  
 
-(* Trying to prove termination *)
-Definition jsonValue_parser_def:
-  jsonValue_parser input = (jsonSimple_parser <|> Parser(jsonArray_parser jsonValue_parser)).run input
-Termination
-  cheat
-End
- 
    
 
 (* Consumes a compulsory single colon *)
@@ -864,18 +855,7 @@ Proof
   cheat
 QED
     
-        
-
-  (*      
-Definition open_brace_parser_def:
-  open_brace_parser = (many_whitespace_parser <&> (("" <x> (char_parser #"{")) <&> many_whitespace_parser))
-End
-
-Definition closed_brace_parser_def:
-  closed_brace_parser = (many_whitespace_parser <&> (("" <x> (char_parser #"}")) <&> many_whitespace_parser))
-End
-*)
-
+       
 
 Definition open_brace_parser_def:
   open_brace_parser = Parser(λinput.
